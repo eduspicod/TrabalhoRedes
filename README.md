@@ -1,4 +1,4 @@
-# Trabalho de Redes de Computadores - Servidor Académico
+# Trabalho de Redes de Computadores - Servidor Acadêmico
 
 Este projeto implementa um sistema distribuído utilizando **Sockets TCP/IP** para o processamento centralizado de dados académicos (Offloading).
 
