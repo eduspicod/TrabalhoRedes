@@ -15,8 +15,10 @@ def salvar_no_log(turma, media, status):
     logs = []
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE, 'r') as f:
-            try: logs = json.load(f)
-            except: logs = []
+            try: 
+                logs = json.load(f)
+            except: 
+                logs = []
     logs.append(dados)
     with open(LOG_FILE, 'w') as f:
         json.dump(logs, f, indent=4)
@@ -41,7 +43,8 @@ def gerar_relatorio_estatistico():
         if t not in resumo:
             resumo[t] = {"Aprovado": 0, "Prova Final": 0, "Reprovado": 0, "Total": 0, "notas": []}
         
-        resumo[t][s] += 1
+        if s in resumo[t]:
+            resumo[t][s] += 1
         resumo[t]["Total"] += 1
         resumo[t]["notas"].append(m)
 
@@ -60,7 +63,7 @@ def gerar_relatorio_estatistico():
         saida += "="*50 + "\n"
 
     for turma, d in resumo.items():
-        taxa_aprov = (d['Aprovado'] / d['Total']) * 100
+        taxa_aprov = (d['Aprovado'] / d['Total']) * 100 if d['Total'] > 0 else 0
         saida += f"TURMA: {turma}\n"
         saida += f" - Alunos: {d['Total']} | Aprovados: {d['Aprovado']} ({taxa_aprov:.1f}%)\n"
         saida += f" - Perigando (PF): {d['Prova Final']} | Reprovados: {d['Reprovado']}\n"
@@ -71,22 +74,32 @@ def gerar_relatorio_estatistico():
     return saida
 
 def handle_tcp_client(conn, addr):
+    """Lida com a conexão TCP do Aluno ou Coordenador."""
     try:
         data = conn.recv(1024).decode()
+        if not data:
+            return
+            
         msg = json.loads(data)
 
         if msg['tipo'] == 'ALUNO':
-            n1, n2, n3 = msg.get('n1', 0), msg.get('n2', 0), msg.get('n3', 0)
-            media = (n1 + n2 + n3) / 3
+            n1 = msg.get('n1', 0)
+            n2 = msg.get('n2', 0)
+            n3 = msg.get('n3', 0)
             
-            if media >= 7: status = "Aprovado"
-            elif media >= 4: status = "Prova Final"
-            else: status = "Reprovado"
+            if n3 == 0:
+                media = (n1 + n2) / 2
+                status = "Pendente (Falta N3)"
+                necessario = 21 - (n1 + n2)
+                pred = f"Precisa de {max(0, necessario):.1f} na N3"
+            else:
+                media = (n1 + n2 + n3) / 3
+                if media >= 7: status = "Aprovado"
+                elif media >= 4: status = "Prova Final"
+                else: status = "Reprovado"
+                pred = "Notas completas"
             
             salvar_no_log(msg['turma'], media, status)
-            
-            necessario = 21 - (n1 + n2)
-            pred = f"Precisa de {max(0, necessario):.1f} na N3" if n3 == 0 else "Notas completas"
             
             resposta = {"media": round(media, 2), "status": status, "predicao": pred}
             conn.sendall(json.dumps(resposta).encode())
@@ -94,8 +107,11 @@ def handle_tcp_client(conn, addr):
         elif msg['tipo'] == 'COORDENADOR':
             relatorio = gerar_relatorio_estatistico()
             conn.sendall(relatorio.encode())
-    except: pass
-    finally: conn.close()
+            
+    except Exception as e:
+        print(f"Erro no cliente {addr}: {e}")
+    finally:
+        conn.close()
 
 def servico_udp_discovery():
     """Broadcast UDP para descoberta automática (+1 ponto extra)"""
