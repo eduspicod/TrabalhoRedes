@@ -39,7 +39,6 @@ def main():
                 
                 if opcao == '1':
                     turma = input("Nome da Turma: ").upper()
-                    # Agora pedimos as 3 notas conforme sua faculdade
                     n1 = float(input("Nota N1: "))
                     n2 = float(input("Nota N2: "))
                     n3 = float(input("Nota N3 (se não tiver, digite 0): "))
